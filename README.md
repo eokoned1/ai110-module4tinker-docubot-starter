@@ -90,3 +90,7 @@ This prints simple retrieval hit-rate metrics over sample queries.
 
 - Python 3.9+
 - Gemini API key for Modes 1 and 3
+
+## Submission Summary
+
+The core concept in this activity was understanding that reliable QA systems come from retrieval quality and guardrails, not from fluent model output alone. Students are most likely to struggle with retrieval tuning, especially chunk size, keyword scoring choices, and why the "best" chunk can still miss the exact answer. AI was helpful for speeding up iteration, generating starter implementations, and suggesting debugging checks when comparing retrieval behavior across modes. AI was misleading when it sounded confident but introduced generic details that were not present in the project documentation. A key lesson is that Mode 3 RAG can still fail if Mode 2 retrieval surfaces weak evidence, so improving retrieval remains the highest leverage improvement. To guide a student without giving the answer, I would ask them to run the same query in all three modes, inspect the top returned chunks and scores, and explain which retrieval change would most improve grounding.
