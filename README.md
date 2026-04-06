@@ -1,82 +1,92 @@
 # DocuBot
 
-DocuBot is a small documentation assistant that helps answer developer questions about a codebase.  
-It can operate in three different modes:
+DocuBot is a small docs assistant built for comparing three QA styles side by side:
 
-1. **Naive LLM mode**  
-   Sends the entire documentation corpus to a Gemini model and asks it to answer the question.
+1. Naive LLM (just ask the model)
+2. Retrieval only (no model, just return relevant snippets)
+3. RAG (retrieve snippets, then generate an answer grounded in those snippets)
 
-2. **Retrieval only mode**  
-   Uses a simple indexing and scoring system to retrieve relevant snippets without calling an LLM.
+The project docs are plain markdown files in the `docs/` folder. There is no real backend here; this is a focused retrieval + prompting exercise.
 
-3. **RAG mode (Retrieval Augmented Generation)**  
-   Retrieves relevant snippets, then asks Gemini to answer using only those snippets.
+## Why This Project Exists
 
-The docs folder contains realistic developer documents (API reference, authentication notes, database notes), but these files are **just text**. They support retrieval experiments and do not require students to set up any backend systems.
+This repo makes one thing very obvious: fluent answers are not always true answers.
 
----
+- Mode 1 sounds smart, but can hallucinate.
+- Mode 2 is honest and traceable, but can feel raw.
+- Mode 3 is the goal: readable answers with evidence, plus refusal when evidence is weak.
 
-## Setup
+## What Was Implemented
 
-### 1. Install Python dependencies
+The retrieval pipeline in `docubot.py` now includes:
 
-    pip install -r requirements.txt
+- Paragraph chunking (`filename::chunkN`) instead of whole-file scoring
+- Simple keyword scoring with stopword filtering
+- Top-k retrieval over chunks
+- Guardrail behavior: if no meaningful match exists, return an explicit refusal
 
-### 2. Configure environment variables
+That means out-of-scope questions (for example, Kubernetes deployment) now fail safely instead of producing confident nonsense.
 
-Copy the example file:
+## Quick Start
 
-    cp .env.example .env
+1. Install dependencies:
 
-Then edit `.env` to include your Gemini API key:
+```bash
+pip install -r requirements.txt
+```
 
-    GEMINI_API_KEY=your_api_key_here
+2. Set your environment variables in `.env`:
 
-If you do not set a Gemini key, you can still run retrieval only mode.
+```env
+GEMINI_API_KEY=your_api_key_here
+```
 
----
+You can still run Mode 2 without a Gemini key.
 
-## Running DocuBot
+3. Run DocuBot:
 
-Start the program:
+```bash
+python main.py
+```
 
-    python main.py
+## Modes
 
-Choose a mode:
+- `1` Naive LLM: model answers directly (not grounded)
+- `2` Retrieval only: returns top chunks only
+- `3` RAG: uses retrieved chunks + LLM synthesis with refusal rules
 
-- **1**: Naive LLM (Gemini reads the full docs)  
-- **2**: Retrieval only (no LLM)  
-- **3**: RAG (retrieval + Gemini)
+## Example Observations
 
-You can use built in sample queries or type your own.
+Question: "Where is the auth token generated?"
 
----
+- Mode 1: can drift into generic auth platform explanations
+- Mode 2: returns the most relevant chunks it found
+- Mode 3: answers from retrieved context or refuses if evidence is insufficient
 
-## Running Retrieval Evaluation (optional)
+Question: "What is the deployment process for Kubernetes?"
 
-    python evaluation.py
+- Mode 1: likely hallucinates
+- Mode 2: guardrail refusal
+- Mode 3: guardrail refusal
 
-This prints simple retrieval hit rates for sample queries.
+## Optional Evaluation
 
----
+Run:
 
-## Modifying the Project
+```bash
+python evaluation.py
+```
 
-You will primarily work in:
+This prints simple retrieval hit-rate metrics over sample queries.
 
-- `docubot.py`  
-  Implement or improve the retrieval index, scoring, and snippet selection.
+## Project Files
 
-- `llm_client.py`  
-  Adjust the prompts and behavior of LLM responses.
-
-- `dataset.py`  
-  Add or change sample queries for testing.
-
----
+- `docubot.py`: retrieval/indexing/chunking logic
+- `llm_client.py`: Gemini prompts and response handling
+- `dataset.py`: sample queries and fallback docs
+- `model_card.md`: reflection on behavior, tradeoffs, and safety
 
 ## Requirements
 
 - Python 3.9+
-- A Gemini API key for LLM features (only needed for modes 1 and 3)
-- No database, no server setup, no external services besides LLM calls
+- Gemini API key for Modes 1 and 3

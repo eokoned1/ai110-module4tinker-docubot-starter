@@ -50,21 +50,16 @@ class DocuBot:
 
     def build_index(self, documents):
         """
-        TODO (Phase 1):
-        Build a tiny inverted index mapping lowercase words to the documents
-        they appear in.
-
-        Example structure:
-        {
-            "token": ["AUTH.md", "API_REFERENCE.md"],
-            "database": ["DATABASE.md"]
-        }
-
-        Keep this simple: split on whitespace, lowercase tokens,
-        ignore punctuation if needed.
+        Build an index mapping chunk keys to paragraph content.
+        Splits each document into paragraphs for finer-grained retrieval.
         """
         index = {}
-        # TODO: implement simple indexing
+        for filename, content in documents:
+            # Split into paragraphs instead of storing whole file
+            paragraphs = [p.strip() for p in content.split("\n\n") if p.strip()]
+            for i, paragraph in enumerate(paragraphs):
+                key = f"{filename}::chunk{i}"
+                index[key] = paragraph
         return index
 
     # -----------------------------------------------------------
@@ -73,27 +68,31 @@ class DocuBot:
 
     def score_document(self, query, text):
         """
-        TODO (Phase 1):
-        Return a simple relevance score for how well the text matches the query.
-
-        Suggested baseline:
-        - Convert query into lowercase words
-        - Count how many appear in the text
-        - Return the count as the score
+        Score relevance by counting query words that appear in text.
+        Filters out common English stopwords to avoid false matches.
         """
-        # TODO: implement scoring
-        return 0
+        stopwords = {"is", "the", "a", "an", "and", "or", "in", "at", "to", "for", "of", "with", "by", "from", "as", "on", "be", "that", "this", "what", "where", "when", "why", "how"}
+        query_words = [w for w in query.lower().split() if w not in stopwords]
+        text_lower = text.lower()
+        score = sum(1 for word in query_words if word in text_lower)
+        return score
 
     def retrieve(self, query, top_k=3):
         """
-        TODO (Phase 1):
-        Use the index and scoring function to select top_k relevant document snippets.
-
-        Return a list of (filename, text) sorted by score descending.
+        Score all chunks and return top_k relevant snippets.
+        Applies a guardrail: returns empty list if best score is 0.
         """
-        results = []
-        # TODO: implement retrieval logic
-        return results[:top_k]
+        scores = []
+        for chunk_key, content in self.index.items():
+            score = self.score_document(query, content)
+            scores.append((score, chunk_key, content))
+        scores.sort(reverse=True, key=lambda x: x[0])
+
+        # Guardrail: if the best score is 0, nothing is relevant
+        if not scores or scores[0][0] == 0:
+            return []
+
+        return [(chunk_key, content) for _, chunk_key, content in scores[:top_k]]
 
     # -----------------------------------------------------------
     # Answering Modes
@@ -103,15 +102,16 @@ class DocuBot:
         """
         Phase 1 retrieval only mode.
         Returns raw snippets and filenames with no LLM involved.
+        If retrieval returns nothing (guardrail triggered), refuses to answer.
         """
         snippets = self.retrieve(query, top_k=top_k)
 
         if not snippets:
-            return "I do not know based on these docs."
+            return "I don't have enough information to answer that question."
 
         formatted = []
-        for filename, text in snippets:
-            formatted.append(f"[{filename}]\n{text}\n")
+        for chunk_key, text in snippets:
+            formatted.append(f"[{chunk_key}]\n{text}\n")
 
         return "\n---\n".join(formatted)
 
